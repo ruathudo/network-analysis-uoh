@@ -38,7 +38,7 @@ graph_area_m = nodes_proj.unary_union.convex_hull.area
 basic_stats = ox.basic_stats(G, area = graph_area_m)
 ext_stats = ox.extended_stats(G)
 
-# Concatenate the statistics dictionaries and add city name and are to the
+# Concatenate the statistics dictionaries and add city name and area to the
 # beginning.
 combined_stats = {"city_name" : place_name,
                   "graph_area" : graph_area_m,
