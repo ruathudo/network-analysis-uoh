@@ -26,7 +26,7 @@ import warnings
 
 # Create the place name, should define a geographical area, not a point.
 place_name = " ".join(sys.argv[1:])
-
+#print(place_name, end = " ")
 # Create networkx digraph
 # NOTE! With these parameters, we obtain a simplified network of public streets. Refer to
 # https://osmnx.readthedocs.io/en/stable/osmnx.html#osmnx.core.graph_from_place
@@ -34,29 +34,34 @@ place_name = " ".join(sys.argv[1:])
 # of them resolve to Polygon, a warning is raised.
 
 i = 1
+print("Init graphing.")
 while True:
     try:
         G = ox.graph_from_place(place_name, network_type='drive', 
                                 retain_all=True, which_result = i)
+        print("Graph formed.", end = " ")
         break
     except TypeError:
+        print("Polygon fail, increments...")
         i = i + 1
 
     if i > 15:
         raise UserWarning("The first 15 queries did not resolve to Polygons. ",
                           "Check location manually. Place: ", place_name)
 
-    
+
 # Calculate the area that the network covers in square meters.
 
 G_proj = ox.project_graph(G)
 nodes_proj = ox.graph_to_gdfs(G_proj, edges=False)
 graph_area_m = nodes_proj.unary_union.convex_hull.area
-
-# Calculate the basic and extended stats.
+print("Area calculated.", end = " ")
+# Calculate the basic and extended stats. NB! Without connectivity and other measures, see docs for details.
 
 basic_stats = ox.basic_stats(G, area = graph_area_m)
-ext_stats = ox.extended_stats(G, connectivity = True, anc = True, ecc = True,  bc = True, cc = True)
+ext_stats = ox.extended_stats(G, connectivity = False, anc = False, ecc = False,  bc = False, cc = False)
+
+print("Stats calculated.")
 
 # Concatenate the statistics dictionaries and add city name and area to the
 # beginning.
@@ -85,7 +90,7 @@ for key in list(combined_stats.keys()):
 # Append the statistics to the files in semicolon separated format. Separator
 # should be semicolon as the city names will contain commas. E.g place name
 # could be "Helsinki, Finland". Writes header row if file does not exist.
-csv_exists = os.path.isfile(destination_csv_file) 
+csv_exists = os.path.isfile(destination_csv_file)
 
 with open(destination_csv_file, "a") as f:
     w = csv.DictWriter(f, combined_stats.keys(), delimiter=";")
