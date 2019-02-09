@@ -26,7 +26,7 @@ import warnings
 
 # Create the place name, should define a geographical area, not a point.
 place_name = " ".join(sys.argv[1:])
-#print(place_name, end = " ")
+
 # Create networkx digraph
 # NOTE! With these parameters, we obtain a simplified network of public streets. Refer to
 # https://osmnx.readthedocs.io/en/stable/osmnx.html#osmnx.core.graph_from_place
@@ -35,13 +35,16 @@ place_name = " ".join(sys.argv[1:])
 
 i = 1
 print("Init graphing.")
+
 while True:
     try:
         G = ox.graph_from_place(place_name, network_type='drive', 
                                 retain_all=True, which_result = i)
-        print("Graph formed.", end = " ")
+        print("Graph formed. ", end = " ")
         break
-    except TypeError:
+    #except TypeError:
+    # MOD: rikulain : catch any type of error
+    except:
         print("Polygon fail, increments...")
         i = i + 1
 
@@ -56,29 +59,36 @@ G_proj = ox.project_graph(G)
 nodes_proj = ox.graph_to_gdfs(G_proj, edges=False)
 graph_area_m = nodes_proj.unary_union.convex_hull.area
 print("Area calculated.", end = " ")
+
 # Calculate the basic and extended stats. NB! Without connectivity and other measures, see docs for details.
 
 basic_stats = ox.basic_stats(G, area = graph_area_m)
+
 ext_stats = ox.extended_stats(G, connectivity = False, anc = False, ecc = False,  bc = False, cc = False)
 
 print("Stats calculated.")
 
 # Concatenate the statistics dictionaries and add city name and area to the
 # beginning.
+
 combined_stats = {"city_name" : place_name,
                   "graph_area" : graph_area_m,
                   **basic_stats,
                   **ext_stats}
 
 # Load the dict from pickle and append.
-if os.path.isfile(destination_pickle_file):
-    with open(destination_pickle_file, 'rb') as f:
-        to_pickle = {**pickle.load(f), place_name : combined_stats}
-else:
-    to_pickle = {place_name : combined_stats}
+
+# 08FEB2019 rikulain : Modified the pickle to append the individual pickles.
+
+#if os.path.isfile(destination_pickle_file):
+#    with open(destination_pickle_file, 'rb') as f:
+#        to_pickle = {**pickle.load(f), place_name : combined_stats}
+#else:
+
+to_pickle = {place_name : combined_stats}
 
 # Dump the dict in a pickle file.
-with open(destination_pickle_file, "wb") as handle:
+with open(destination_pickle_file, "ab") as handle:
     pickle.dump(to_pickle, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
@@ -97,5 +107,3 @@ with open(destination_csv_file, "a") as f:
     if not csv_exists:
         w.writeheader()
     w.writerow(combined_stats)
-
-
