@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=network-metrics
+#SBATCH -o logs/cities_proper_result_log.txt
+#SBATCH --workdir=/wrk/group/grp-networks/metrics/
+#SBATCH -c 1
+#SBATCH -t 04:00:00
+#SBATCH --mem=20000M
+#SBATCH -e logs/error_logs/cities_proper_error_log.txt
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=riku.laine@helsinki.fi
+
+srun hostname
+echo $* in process
+time python $PROJ/networks_to_data.py $*
