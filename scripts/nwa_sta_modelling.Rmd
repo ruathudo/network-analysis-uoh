@@ -1,0 +1,220 @@
+---
+title: "Network analysis project"
+subtitle: "City street analysis from a network and topology perspective"
+author: "Riku Laine"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, message=F, warning=F}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(GGally)
+library(knitr)
+library(ggfortify)
+library(clue)
+library(corrplot)
+library(ggplot2)
+library(car)
+library(MASS)
+library(gvlma)
+```
+
+# Introduction
+
+The purpose of this document is to illustrate the statistical model fitting procedure used to infer street network properties that affect travel times in cities.
+
+# The data
+
+* Street network metrics from 197 cities. 36 different variables.
+* Cities from [Inrix scorecard](http://inrix.com/scorecard/) listing.
+* It was observed that some of the areas obtained were close to zero square kilometers or clearly too small to be correctly mapped (see Table 1). It was decided that if the logarithm of the graph area is bigger than the mean of the logarithms of the areas subtracted by one standard deviation of the log areas, the city would be included in the analysis. I.e. include the city if `log(graph_area) > mean(log(graph_area)) - sd(log(graph_area))`. Subsequently 17 cities were removed.
+
+
+```{r read_data}
+
+# Import data
+metrics <- read.csv2("C:/Users/Riku_L/network-analysis-uoh/data/merged_traffic_network_statistics.csv",
+					 header = T, stringsAsFactors = F, dec=".")
+
+# Remove columns with all missing values
+metrics <- metrics[, apply(metrics, 2, function(x) {!all(is.na(x))})]
+
+# Remove columns containing ID numbers and other redundant columns.
+metrics <- metrics[, !(colnames(metrics) %in% 
+					   	c("city_name.y", "pos", "hours_congestion", "year_change", "cost",
+					   	  "pagerank_max_node", "pagerank_min_node"))]
+
+# Print 20 smallest graph areas
+smallest <- head(order(metrics$graph_area), 20)
+
+kable(metrics[smallest, c('city_name', 'graph_area')],
+	  digits = 0, 
+	  caption = "20 smallest graph areas (in m^2^).",
+	  row.names = F)
+
+# Remove observations according to prespecified rule
+log_area <- log(metrics$graph_area)
+
+cutpoint <- mean(log_area) - sd(log_area)
+
+cat("Cutpoint in sq. kms:", exp(cutpoint)/1e6)
+
+metrics <- subset(metrics, log_area > cutpoint)
+
+row.names(metrics) <- NULL # Reset rownames
+```
+
+# Analysis
+
+The goal is to build a statistical model to explain the variable `inner_mile`: "The time it takes to travel one mile into the central business district during peak hours" (Inrix).
+
+## Correlations
+
+It as expected that the variables show extreme values of correlation. Below are figures for Pearson and Spearman rank correlation. Latter indicates correlations with the variable ranks, order of greatness, and doesnt expect linear dependence. Illuminating example given in the relationship with the maximum PageRank value `pagerank_max` and number of nodes `n`.
+
+```{r analysis_correlations, fig.show='hold'}
+# Correlation plots
+corrplot(cor(metrics[,-1]), order = "hclust", tl.cex = 0.7, 
+		 method = "circle", type = "lower", tl.srt = 0.1)
+
+title(main = "Correlation plots, ordering by hierarchical clustering", 
+	  sub = "Pearson correlation")
+
+corrplot(cor(metrics[,-1], method = "spearman"), order = "hclust", 
+		 tl.cex = 0.7,  method = "circle", type = "lower", tl.srt = 0.1)
+
+title(sub = "Spearman rank correlation")
+
+par(mfrow=c(1,2))
+
+plot(metrics$n, metrics$pagerank_max, main = "Linear scale")
+plot(metrics$n, metrics$pagerank_max, log = 'xy', main = "Log-log scale")
+
+par(mfrow=c(1,1))
+```
+
+# Modelling & Inference
+
+It is hypothesized that the dependence between the properties and traffic time is linear.
+
+## Variable selection
+
+Basis for variable selection is reported at this [document](https://github.com/ruathudo/network-analysis-uoh/blob/master/scripts/variable_selection.md). Some of the variable  selection and construction was based on the assumption that if a street was a two-way street the library broke it down as two one-directional edges between nodes, i.e. initersections.
+
+During the model fitting seven misspecified networks were identified by Cook's distance from Acapulco, Waterloo (Ontario), Villahermosa, Mecca, Leicester, Belfast and Medellin. For all of them but Waterloo, Ontario, the misspecification was the result of OpenStreetMap service lacking their respective border polygon. Usually the service had the location of the cities as a point, but lacked the polygon, and then the next polygon in list (obtainable via search from [here](https://nominatim.openstreetmap.org/)) was usually in the US. Waterloo, Ontario was excluded from analysis as it was evident that the Inrix [analysis](http://inrix.com/scorecard-city/?city=Waterloo%2C%20ON&index=220) also included the street network of the neighbouring city of Kitchener.
+
+```{r analysis_model_variables}
+
+# Construct additional variable
+metrics$percentage_twoway <- (metrics$m - metrics$street_segments_count) / metrics$street_segments_count
+
+regression_vars <- c("inner_time", "k_avg", "edge_length_avg", "intersection_density_km",
+					 "street_density_km", "self_loop_proportion", "degree_centrality_avg",
+					 "clustering_coefficient_avg", "percentage_twoway")
+
+# Define outliers to omit
+outliers_to_omit <- -c(1,168,173, 92, 77, 13, 93)
+
+# Fit linear model
+met_linear <- lm(inner_time ~ ., data = metrics[outliers_to_omit, regression_vars]) 
+
+# Print model summaries
+summary(met_linear)
+
+# Plot diagnostic plots
+par(mfrow=c(2,2))
+plot(met_linear)
+title("Diagnostic plots for linear regression", outer = T, line = -2)
+
+par(mfrow=c(1,2))
+plot(met_linear, which = 4)
+plot(fitted(met_linear), residuals(met_linear, "pearson"),
+	 ylab = "Std. residual", xlab = "inner_time", main = "Standardized residuals vs. response")
+par(mfrow=c(1,1))
+
+# Test for constant variance
+ncvTest(met_linear)
+```
+
+QQ-plot indicates that that there are some deviations from the assumptions. `ncvTest` confirms that variance is not constant. From the Cook's distance figure it is evident that no significant outliers are anymore present. Observations 48, 66 and 107 (Dublin, Helsinki and Naberezhnye Chelny) have been validated to be correct.
+
+Let's conduct Box-Cox to obtain best power transformation for our response:
+
+```{r}
+boxCox(met_linear)
+title("Box-Cox method for power transformation")
+summary(powerTransform(met_linear))
+```
+
+From the function summary it is seen that transformation is needed and that it should be log transformation. Let's redefine model with response transformed to log scale. 
+
+Notable is that now interpreting as in wiley etc etc.
+
+```{r}
+# Fit linear model with response in log scale.
+met_log <- lm(log(inner_time) ~ ., data = metrics[outliers_to_omit, regression_vars])
+
+# Print model summaries
+summary(met_log)
+
+# Test for non-constant variance
+ncvTest(met_log)
+
+# Diagnostic plots
+par(mfrow=c(2,2))
+plot(met_log)
+par(mfrow=c(1,1))
+
+# Test for normally distributed residuals
+shapiro.test(met_log$residuals)
+
+# Residual vs predictor / fitted values plots
+# and Tukey's test for nonadditivity
+residualPlots(met_log)
+
+# Global Validation of Linear Models Assumptions, see ref.
+gvlma(met_log)
+
+```
+
+The unconstant variance has now been corrected as proposed by Weisberg. The tails of the QQ-plot do not deviate anymore and the residuals are normally distributed. Also Tukey's tests for nonadditivity returned non-significant.
+
+Therefore it can be concluded that the model fits.
+
+## Results
+
+
+
+```{r}
+summ <- summary(met_log)
+
+coefs <- signif(100*(exp(summ$coefficients) - 1)[-1, 1], 3)
+pvals <- round(summ$coefficients[-1, 4], 3)
+signifs <- ifelse(pvals < 0.05, "Yes", "No")
+tbl <- cbind(coefs, pvals, signifs)
+kable(tbl, col.names = c("Perc. change", "P-value", "Significant?"),
+	  caption = "Coefficients as percentage change and their p-values")
+```
+
+
+From the above table it is seen that for each unit change in e.g intersection density, the average inner_time increases by 0.75%. Also for each percentage twoway roads added, the average "time it takes to travel one mile into the central business district during peak hours" is reduced by 44.2%.
+
+# PCA
+
+O
+```{r analysis_pca}
+scaled_metrics <- scale(metrics[outliers_to_omit, regression_vars]) #  acapulco
+
+metrics.pca <- princomp(scaled_metrics)
+
+autoplot(metrics.pca, data = scaled_metrics, label=T)
+
+met.pca <- prcomp(scaled_metrics)
+
+autoplot(met.pca, data = scaled_metrics, label = T, shape = F, loadings = T, loadings.label = T)
+
+summary(met.pca)
+```
