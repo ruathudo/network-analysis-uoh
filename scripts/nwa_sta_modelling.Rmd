@@ -109,7 +109,7 @@ During the model fitting seven misspecified networks were identified by Cook's d
 ```{r analysis_model_variables}
 
 # Construct additional variable
-metrics$percentage_twoway <- (metrics$m - metrics$street_segments_count) / metrics$street_segments_count
+metrics$percentage_twoway <- (metrics$m - metrics$street_segments_count) / metrics$street_segments_count * 100
 
 regression_vars <- c("inner_time", "k_avg", "edge_length_avg", "intersection_density_km",
 					 "street_density_km", "self_loop_proportion", "degree_centrality_avg",
@@ -200,7 +200,7 @@ kable(tbl, col.names = c("Perc. change", "P-value", "Significant?"),
 ```
 
 
-From the above table it is seen that for each unit change in e.g intersection density, the average inner_time increases by 0.75%. Also for each percentage twoway roads added, the average "time it takes to travel one mile into the central business district during peak hours" is reduced by 44.2%.
+From the above table it is seen that for each unit change in e.g intersection density, the average inner_time increases by 0.75%. Also for each percentage twoway roads added, the average "time it takes to travel one mile into the central business district during peak hours" is reduced by approximately 0.582%.
 
 # PCA
 
