@@ -35,7 +35,7 @@
 |clustering_coefficient_weighted_avg || weighing by n?, then OUT, because clusters are local and road network doesn't have infinitely long edges
 |pagerank || dict
 |pagerank_max_node | ID: OUT
-|pagerank_max ||correlates strongly with n, should it be normalized?? What does it mean then? > normalize with n, IN
+|pagerank_max || ~correlates strongly with n, should it be normalized?? What does it mean then? > normalize with n, IN~ OUT
 |pagerank_min_node || ID: OUT
 |pagerank_min || OUT
 
