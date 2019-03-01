@@ -125,10 +125,6 @@ met_linear <- lm(inner_time ~ ., data = metrics[outliers_to_omit, regression_var
 summary(met_linear)
 
 # Plot diagnostic plots
-<<<<<<< HEAD
-=======
-par(mfrow=c(2,2))
->>>>>>> ba57686a366b907d492fbc7dece856c76844a9ec
 plot(met_linear)
 title("Diagnostic plots for linear regression", outer = T, line = -2)
 
@@ -167,13 +163,7 @@ summary(met_log)
 ncvTest(met_log)
 
 # Diagnostic plots
-<<<<<<< HEAD
 plot(met_log)
-=======
-par(mfrow=c(2,2))
-plot(met_log)
-par(mfrow=c(1,1))
->>>>>>> ba57686a366b907d492fbc7dece856c76844a9ec
 
 # Test for normally distributed residuals
 shapiro.test(met_log$residuals)
@@ -209,7 +199,6 @@ kable(tbl, col.names = c("Perc. change", "P-value", "Significant?"),
 
 From the above table it is seen that for each unit change in e.g intersection density, the average inner_time increases by 0.75%. Also for each percentage twoway roads added, the average "time it takes to travel one mile into the central business district during peak hours" is reduced by approximately 0.582%.
 
-<<<<<<< HEAD
 # Summary metrics
 
 ```{r analysis_pca, output='hold', echo =F}
@@ -221,21 +210,4 @@ kable(formatC(cbind(apply(metrics[outliers_to_omit,-1], 2, min),
 					apply(metrics[outliers_to_omit,-1], 2, sd),
 					apply(metrics[outliers_to_omit,-1], 2, max))),
 	  col.names = c("min", "mean","median", "sd", "max"))
-=======
-# PCA
-
-O
-```{r analysis_pca}
-scaled_metrics <- scale(metrics[outliers_to_omit, regression_vars]) #  acapulco
-
-metrics.pca <- princomp(scaled_metrics)
-
-autoplot(metrics.pca, data = scaled_metrics, label=T)
-
-met.pca <- prcomp(scaled_metrics)
-
-autoplot(met.pca, data = scaled_metrics, label = T, shape = F, loadings = T, loadings.label = T)
-
-summary(met.pca)
->>>>>>> ba57686a366b907d492fbc7dece856c76844a9ec
 ```
